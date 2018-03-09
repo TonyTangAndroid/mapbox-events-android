@@ -121,7 +121,7 @@ public class TelemetryServiceTest {
     startService(serviceIntent);
     waitUntilServiceIsBound(serviceIntent, latchConnected, serviceConnection);
     ServiceTaskCallback mockedCallback = mock(ServiceTaskCallback.class);
-    boundService[0].injectServiceTask(mockedCallback);
+    boundService[0].addServiceTask(mockedCallback);
 
     boundService[0].onTaskRemoved(serviceIntent);
 

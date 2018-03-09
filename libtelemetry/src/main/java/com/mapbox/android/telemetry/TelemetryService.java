@@ -15,17 +15,21 @@ import com.mapbox.android.core.location.LocationEngineListener;
 import com.mapbox.android.core.location.LocationEnginePriority;
 import com.mapbox.android.core.location.LocationEngineProvider;
 
+import java.util.concurrent.CopyOnWriteArraySet;
+
 import static com.mapbox.android.telemetry.LocationReceiver.LOCATION_RECEIVER_INTENT;
 import static com.mapbox.android.telemetry.TelemetryReceiver.TELEMETRY_RECEIVER_INTENT;
 
-public class TelemetryService extends Service implements TelemetryCallback, LocationEngineListener {
+public class TelemetryService extends Service implements TelemetryCallback, LocationEngineListener, EventCallback {
   private LocationReceiver locationReceiver = null;
   private TelemetryReceiver telemetryReceiver = null;
+  private EventsQueue queue = null;
+  private int boundInstances = 0;
   // For testing only:
   private boolean isLocationReceiverRegistered = false;
   private boolean isTelemetryReceiverRegistered = false;
   private LocationEngine locationEngine = null;
-  private ServiceTaskCallback serviceTaskCallback = null;
+  private CopyOnWriteArraySet<ServiceTaskCallback> serviceTaskCallbacks = null;
   private LocationEnginePriority locationPriority = LocationEnginePriority.NO_POWER;
 
   @Override
@@ -33,6 +37,7 @@ public class TelemetryService extends Service implements TelemetryCallback, Loca
     super.onCreate();
     createLocationReceiver();
     createTelemetryReceiver();
+    createServiceTaskCallbacks();
   }
 
   @Override
@@ -57,7 +62,9 @@ public class TelemetryService extends Service implements TelemetryCallback, Loca
 
   @Override
   public void onTaskRemoved(Intent rootIntent) {
-    serviceTaskCallback.onTaskRemoved();
+    for (ServiceTaskCallback callback : serviceTaskCallbacks) {
+      callback.onTaskRemoved();
+    }
     super.onTaskRemoved(rootIntent);
   }
 
@@ -86,6 +93,13 @@ public class TelemetryService extends Service implements TelemetryCallback, Loca
     LocalBroadcastManager.getInstance(this).sendBroadcast(LocationReceiver.supplyIntent(location));
   }
 
+  @Override
+  public void onEventReceived(Event event) {
+    if (queue != null) {
+      queue.push(event);
+    }
+  }
+
   public void updateSessionIdentifier(SessionIdentifier sessionIdentifier) {
     locationReceiver.updateSessionIdentifier(sessionIdentifier);
   }
@@ -100,8 +114,28 @@ public class TelemetryService extends Service implements TelemetryCallback, Loca
     }
   }
 
-  void injectServiceTask(ServiceTaskCallback callback) {
-    this.serviceTaskCallback = callback;
+  void bindInstance() {
+    boundInstances++;
+  }
+
+  void unbindInstance() {
+    boundInstances--;
+  }
+
+  int obtainBoundInstances() {
+    return boundInstances;
+  }
+
+  boolean addServiceTask(ServiceTaskCallback callback) {
+    return serviceTaskCallbacks.add(callback);
+  }
+
+  boolean removeServiceTask(ServiceTaskCallback callback) {
+    return serviceTaskCallbacks.remove(callback);
+  }
+
+  void injectEventsQueue(EventsQueue queue) {
+    this.queue = queue;
   }
 
   // For testing only
@@ -115,7 +149,7 @@ public class TelemetryService extends Service implements TelemetryCallback, Loca
   }
 
   private void createLocationReceiver() {
-    locationReceiver = new LocationReceiver();
+    locationReceiver = new LocationReceiver(this);
     registerLocationReceiver();
   }
 
@@ -154,6 +188,10 @@ public class TelemetryService extends Service implements TelemetryCallback, Loca
     LocalBroadcastManager.getInstance(getApplicationContext())
       .registerReceiver(telemetryReceiver, new IntentFilter(TELEMETRY_RECEIVER_INTENT));
     isTelemetryReceiverRegistered = true;
+  }
+
+  private void createServiceTaskCallbacks() {
+    serviceTaskCallbacks = new CopyOnWriteArraySet<>();
   }
 
   private void unregisterLocationReceiver() {
