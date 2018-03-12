@@ -91,7 +91,7 @@ jobs:
       - deploy:
           name: Publish to Maven Central
           command: |
-            if [ "${CIRCLE_BRANCH}" == "master" ]; then
+            if [ "${CIRCLE_BRANCH}" == "pg-mapbox-events-android-snapshot" ]; then
             make publish ;
             fi
       - store_artifacts:
