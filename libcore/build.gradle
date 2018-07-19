@@ -23,13 +23,11 @@ android {
 }
 
 dependencies {
-    provided dependenciesList.gmsLocation
+    implementation dependenciesList.supportAppcompatV7
 
-    compile dependenciesList.supportAppcompatV7
-
-    testCompile dependenciesList.junit
-    testCompile dependenciesList.mockito
-    androidTestCompile(dependenciesList.testEspressoCore, {
+    testImplementation dependenciesList.junit
+    testImplementation dependenciesList.mockito
+    androidTestImplementation(dependenciesList.testEspressoCore, {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
 }
