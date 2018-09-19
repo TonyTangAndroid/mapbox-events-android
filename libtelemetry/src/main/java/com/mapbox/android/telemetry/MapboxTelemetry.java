@@ -523,7 +523,7 @@ public class MapboxTelemetry implements FullQueueCallback, EventCallback, Servic
 
   private void startLocation() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-      if (ProcessLifecycleOwner.get().getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.STARTED)) {
+      if (ProcessLifecycleOwner.get().getLifecycle().getCurrentState().isAtLeast(Lifecycle.State.RESUMED)) {
         applicationContext.startService(obtainLocationServiceIntent());
       } else {
         ProcessLifecycleOwner.get().getLifecycle().addObserver(this);
@@ -593,7 +593,7 @@ public class MapboxTelemetry implements FullQueueCallback, EventCallback, Servic
     return isNetworkConnected() && checkRequiredParameters(accessToken, userAgent);
   }
 
-  @OnLifecycleEvent(Lifecycle.Event.ON_START)
+  @OnLifecycleEvent(Lifecycle.Event.ON_RESUME)
   void onEnterForeground() {
     startLocation();
     ProcessLifecycleOwner.get().getLifecycle().removeObserver(this);
