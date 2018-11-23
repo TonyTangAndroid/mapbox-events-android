@@ -43,6 +43,7 @@ dependencies {
 
     implementation project(":libtelemetry")
     implementation project(":libcore")
+    implementation 'com.squareup.leakcanary:leakcanary-android:1.6.2'
 }
 
 apply from: "${rootDir}/gradle/developer-config.gradle"
