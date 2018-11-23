@@ -5,8 +5,8 @@ import android.os.Bundle;
 import android.os.Looper;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 
+import android.util.Log;
 import com.mapbox.android.core.location.LocationEngine;
 import com.mapbox.android.core.location.LocationEngineCallback;
 import com.mapbox.android.core.location.LocationEngineProvider;
@@ -16,6 +16,7 @@ import com.mapbox.android.core.permissions.PermissionsListener;
 import com.mapbox.android.core.permissions.PermissionsManager;
 import com.mapbox.android.telemetry.MapboxTelemetry;
 
+import java.lang.ref.WeakReference;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements PermissionsListener {
@@ -23,40 +24,14 @@ public class MainActivity extends AppCompatActivity implements PermissionsListen
   private MapboxTelemetry mapboxTelemetry;
   private PermissionsManager permissionsManager;
 
+  private LocationEngineCallback<LocationEngineResult> currentLocationEngineListener;
+
   LocationEngine locationEngine;
   private LocationEngineRequest locationEngineRequest =
     new LocationEngineRequest.Builder(1000)
       .setFastestInterval(1000)
       .setPriority(LocationEngineRequest.PRIORITY_HIGH_ACCURACY)
       .build();
-
-  @NonNull
-  private LocationEngineCallback<LocationEngineResult> currentLocationEngineListener =
-    new LocationEngineCallback<LocationEngineResult>() {
-      @Override
-      public void onSuccess(LocationEngineResult result) {
-        Log.e("LEAK_TEST", "current location: " + result.getLocations());
-      }
-
-      @Override
-      public void onFailure(@NonNull Exception exception) {
-        Log.e("LEAK_TEST", "current location - failure - " + exception);
-      }
-    };
-
-  @NonNull
-  private LocationEngineCallback<LocationEngineResult> lastLocationEngineListener =
-    new LocationEngineCallback<LocationEngineResult>() {
-      @Override
-      public void onSuccess(LocationEngineResult result) {
-        Log.e("LEAK_TEST", "last location: " + result.getLastLocation());
-      }
-
-      @Override
-      public void onFailure(@NonNull Exception exception) {
-        Log.e("LEAK_TEST", "last location - failure - " + exception);
-      }
-    };
 
   @SuppressLint("MissingPermission")
   @Override
@@ -66,26 +41,26 @@ public class MainActivity extends AppCompatActivity implements PermissionsListen
 
     String accessTokenTelemetry = obtainAccessToken();
     String userAgentTelemetry = "MapboxEventsAndroid/3.1.0";
-    mapboxTelemetry = new MapboxTelemetry(this, accessTokenTelemetry, userAgentTelemetry);
+    //mapboxTelemetry = new MapboxTelemetry(this, accessTokenTelemetry, userAgentTelemetry);
+    currentLocationEngineListener = new LocationUpdateCallback(this);
+  }
 
+  @Override
+  protected void onResume() {
+    super.onResume();
     checkPermissions();
   }
 
   @Override
-  protected void onStart() {
-    super.onStart();
-  }
-
-  @Override
-  protected void onStop() {
-    super.onStop();
+  protected void onPause() {
+    super.onPause();
     locationEngine.removeLocationUpdates(currentLocationEngineListener);
   }
 
   @Override
   protected void onDestroy() {
     super.onDestroy();
-    mapboxTelemetry.disable();
+    //mapboxTelemetry.disable();
   }
 
   private String obtainAccessToken() {
@@ -108,8 +83,7 @@ public class MainActivity extends AppCompatActivity implements PermissionsListen
   private void test() {
     locationEngine = LocationEngineProvider.getBestLocationEngine(this);
     locationEngine.requestLocationUpdates(locationEngineRequest, currentLocationEngineListener, Looper.getMainLooper());
-//    locationEngine.getLastLocation(lastLocationEngineListener);
-    mapboxTelemetry.enable();
+    //mapboxTelemetry.enable();
   }
 
   @Override
@@ -122,6 +96,30 @@ public class MainActivity extends AppCompatActivity implements PermissionsListen
   public void onPermissionResult(boolean granted) {
     if (granted) {
       test();
+    }
+  }
+
+  private static final class LocationUpdateCallback implements LocationEngineCallback<LocationEngineResult>  {
+    private final WeakReference<AppCompatActivity> weakRef;
+
+    LocationUpdateCallback(AppCompatActivity activity) {
+      this.weakRef = new WeakReference<>(activity);
+    }
+
+    @Override
+    public void onSuccess(LocationEngineResult result) {
+      AppCompatActivity activity = weakRef.get();
+      if (activity == null) {
+        return;
+      }
+
+      // Do something with activity
+      Log.e("LEAK_TEST", "current location: " + result.getLocations());
+    }
+
+    @Override
+    public void onFailure(@NonNull Exception e) {
+      Log.e("LEAK_TEST", "current location - failure - " + e);
     }
   }
 }
